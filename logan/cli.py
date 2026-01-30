@@ -1,6 +1,8 @@
+from re import L
 from parser import extract_status, extract_time
 from enum import Enum
 from stats import count_per_minute
+from model import LogEntry
 
 class Status(Enum):
     OK = 200
@@ -28,12 +30,14 @@ def main():
     badGateway = 0
     serviceUnavalible = 0
 
-    timestamps = []
+    logEntries: list[LogEntry] = []
         
     with open("sample_logs/access.log") as f:
         for line in f:
+            ts = extract_time(line)
             status = extract_status(line)
-            timestamps.append(extract_time(line))
+            entry = LogEntry(timestamp=ts, status=status)
+            logEntries.append(entry)
             match status:
                 case Status.OK.value:
                     ok += 1
@@ -60,11 +64,10 @@ def main():
                 case _:
                     print("Code not controlled")
 
-        each_min = count_per_minute(timestamps)
+        each_min = count_per_minute(logEntries)
 
         for minute, count in sorted(each_min.items()):
             print(f"{minute} -> {count}")
-    
 
         print("-"*20)
         print(f"OK error: {ok}")
