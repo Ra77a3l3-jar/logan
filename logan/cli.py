@@ -1,4 +1,4 @@
-from parser import extract_status
+from parser import extract_status, extract_time
 from enum import Enum
 
 class Status(Enum):
@@ -29,7 +29,9 @@ def main():
     
     with open("sample_logs/access.log") as f:
         for line in f:
+            ts = extract_time(line)
             status = extract_status(line)
+            print(ts)
             match status:
                 case Status.OK.value:
                     ok += 1
@@ -55,6 +57,7 @@ def main():
                     serviceUnavalible += 1
                 case _:
                     print("Code not controlled")
+    
 
         print("-"*20)
         print(f"OK error: {ok}")
