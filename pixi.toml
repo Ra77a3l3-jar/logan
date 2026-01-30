@@ -1,0 +1,13 @@
+[workspace]
+authors = ["Ra77a3l3-jar <raffaelemeo77@gmail.com>"]
+channels = ["conda-forge"]
+name = "logan"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.12"
+typer = "*"
+rich = "*"
