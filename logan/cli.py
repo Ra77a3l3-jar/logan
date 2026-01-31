@@ -8,7 +8,9 @@ from stats import (
     avr_latency_per_minute,
     error_per_minute
 )
-from model import LogEntry
+from formats import parse_line
+from rich.console import Console
+from rich.table import Table
 
 def main():
     
@@ -19,15 +21,14 @@ def main():
     serverError = 0
 
     logEntries = []
-        
+
     with open("sample_logs/access.log") as f:
         for line in f:
-            entry = LogEntry(
-                timestamp=extract_time(line),
-                status=extract_status(line),
-                latency=extract_latency(line)
-            )
-            logEntries.append(entry)
+            entry = parse_line(line)
+            try:
+                logEntries.append(entry)
+            except ValueError:
+                pass
             if 100 <= entry.status < 200:
                 informational += 1
             elif 200 <= entry.status < 300:
@@ -41,23 +42,27 @@ def main():
             else:
                 raise ValueError(f"Invalid HTTP status code: {entry.status}")
 
+        console = Console()
+        table = Table(title="Log Analyzer")
+
+        table.add_column("Minute", style="cyan")
+        table.add_column("Requests", style="green", justify="right")
+        table.add_column("Avr latency (ms)", style="green", justify="right")
+        table.add_column("Error rate", style="red", justify="right")
+
         each_min = count_per_minute(logEntries)
-
-        print("\nLogs per minute:")
-        for minute, count in sorted(each_min.items()):
-            print(f"{minute} -> {count}")
-
         lat_min = avr_latency_per_minute(logEntries)
-
-        print("\nAverage latency per minute:")
-        for minute, count in sorted(lat_min.items()):
-            print(f"{minute} avr latency: {count}ms")
-
         err_min = error_per_minute(logEntries)
 
-        print("\nError rate per minute:")
-        for minute, rate in sorted(err_min.items()):
-            print(f"{minute} -> {rate}")
+        for minute in sorted(each_min):
+            table.add_row(
+                str(minute),
+                str(each_min.get(minute, 0)),
+                str(lat_min.get(minute, 0)),
+                str(err_min.get(minute, 0)),
+            )
+
+        console.print(table)
 
         print("-"*20)
         print(f"Informational code: {informational}")
