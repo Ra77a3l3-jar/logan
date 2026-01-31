@@ -11,8 +11,13 @@ from stats import (
 from formats import parse_line
 from rich.console import Console
 from rich.table import Table
+import typer
 
-def main():
+app = typer.Typer()
+console = Console()
+
+@app.command()
+def main(file: str):
     
     informational = 0
     successful = 0
@@ -22,7 +27,7 @@ def main():
 
     logEntries = []
 
-    with open("sample_logs/access.log") as f:
+    with open(file) as f:
         for line in f:
             entry = parse_line(line)
             try:
@@ -42,35 +47,38 @@ def main():
             else:
                 raise ValueError(f"Invalid HTTP status code: {entry.status}")
 
-        console = Console()
-        table = Table(title="Log Analyzer")
+    if not logEntries:
+        console.print("[red]No valid log entries found[/red]")
+        raise typer.Exit(code=1)
 
-        table.add_column("Minute", style="cyan")
-        table.add_column("Requests", style="green", justify="right")
-        table.add_column("Avr latency (ms)", style="green", justify="right")
-        table.add_column("Error rate", style="red", justify="right")
+    table = Table(title="Log Analyzer")
 
-        each_min = count_per_minute(logEntries)
-        lat_min = avr_latency_per_minute(logEntries)
-        err_min = error_per_minute(logEntries)
+    table.add_column("Minute", style="cyan")
+    table.add_column("Requests", style="green", justify="right")
+    table.add_column("Avr latency (ms)", style="green", justify="right")
+    table.add_column("Error rate", style="red", justify="right")
 
-        for minute in sorted(each_min):
-            table.add_row(
-                str(minute),
-                str(each_min.get(minute, 0)),
-                str(lat_min.get(minute, 0)),
-                str(err_min.get(minute, 0)),
-            )
+    each_min = count_per_minute(logEntries)
+    lat_min = avr_latency_per_minute(logEntries)
+    err_min = error_per_minute(logEntries)
 
-        console.print(table)
+    for minute in sorted(each_min):
+        table.add_row(
+            str(minute),
+            str(each_min.get(minute, 0)),
+            str(lat_min.get(minute, 0)),
+            str(err_min.get(minute, 0)),
+        )
 
-        print("-"*20)
-        print(f"Informational code: {informational}")
-        print(f"Successful codes: {successful}")
-        print(f"Redirection codes: {redirection}")
-        print(f"Client error codes: {clientError}")
-        print(f"Server error codes: {serverError}")
+    console.print(table)
+
+    print("-"*20)
+    print(f"Informational code: {informational}")
+    print(f"Successful codes: {successful}")
+    print(f"Redirection codes: {redirection}")
+    print(f"Client error codes: {clientError}")
+    print(f"Server error codes: {serverError}")
 
 
 if __name__ == "__main__":
-    main()
+    app()
