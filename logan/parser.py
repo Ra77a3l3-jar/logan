@@ -23,4 +23,13 @@ def extract_time(line: str) -> datetime:
 
     # Strign with just content in [], if 0 content with []
     raw = match.group(1)
-    return datetime.strptime(raw, "%d/%b/%Y:%H:%M:%S %z") # Convert string to datetime formatt    
+    return datetime.strptime(raw, "%d/%b/%Y:%H:%M:%S %z") # Convert string to datetime formatt
+
+LATENCY_RE = re.compile(r"(\d+)ms")
+
+def extract_latency(line: str) -> int:
+    match = LATENCY_RE.search(line)
+    if not match:
+        raise ValueError("Latency data not present")
+
+    return int(match.group(1))

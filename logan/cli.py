@@ -1,7 +1,13 @@
-from re import L
-from parser import extract_status, extract_time
+from parser import (
+    extract_status,
+    extract_time,
+    extract_latency
+)
 from enum import Enum
-from stats import count_per_minute
+from stats import (
+    count_per_minute,
+    avr_latency_per_minute
+)
 from model import LogEntry
 
 class Status(Enum):
@@ -34,11 +40,13 @@ def main():
         
     with open("sample_logs/access.log") as f:
         for line in f:
-            ts = extract_time(line)
-            status = extract_status(line)
-            entry = LogEntry(timestamp=ts, status=status)
+            entry = LogEntry(
+                timestamp=extract_time(line),
+                status=extract_status(line),
+                latency=extract_latency(line)
+            )
             logEntries.append(entry)
-            match status:
+            match entry.status:
                 case Status.OK.value:
                     ok += 1
                 case Status.NO_CONTENT.value:
@@ -68,6 +76,11 @@ def main():
 
         for minute, count in sorted(each_min.items()):
             print(f"{minute} -> {count}")
+
+        lat_min = avr_latency_per_minute(logEntries)
+
+        for minute, count in sorted(lat_min.items()):
+            print(f"{minute} avr latency: {count}ms")
 
         print("-"*20)
         print(f"OK error: {ok}")

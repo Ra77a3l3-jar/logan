@@ -5,3 +5,4 @@ from datetime import datetime
 class LogEntry:
     timestamp: datetime
     status: int
+    latency: int
