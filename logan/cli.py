@@ -5,7 +5,8 @@ from parser import (
 )
 from stats import (
     count_per_minute,
-    avr_latency_per_minute
+    avr_latency_per_minute,
+    error_per_minute
 )
 from model import LogEntry
 
@@ -42,13 +43,21 @@ def main():
 
         each_min = count_per_minute(logEntries)
 
+        print("\nLogs per minute:")
         for minute, count in sorted(each_min.items()):
             print(f"{minute} -> {count}")
 
         lat_min = avr_latency_per_minute(logEntries)
 
+        print("\nAverage latency per minute:")
         for minute, count in sorted(lat_min.items()):
             print(f"{minute} avr latency: {count}ms")
+
+        err_min = error_per_minute(logEntries)
+
+        print("\nError rate per minute:")
+        for minute, rate in sorted(err_min.items()):
+            print(f"{minute} -> {rate}")
 
         print("-"*20)
         print(f"Informational code: {informational}")
