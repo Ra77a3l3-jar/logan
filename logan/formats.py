@@ -116,7 +116,7 @@ PARSERS = [
     DnsmasqParser(),
 ]
 
-def parse_line(line: str) -> LogEntry:
+def parse_line(line: str) -> LogEntry | DNSEntry:
     for parser in PARSERS:
         if parser.match(line):
             return parser.parse(line)
