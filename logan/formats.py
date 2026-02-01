@@ -72,28 +72,26 @@ class DnsmasqParser(BasicParser[DNSEntry]):
         return bool(self.PATTERN.match(line))
 
     def parse(self, line: str) -> DNSEntry:
-        m = self.PATTERN.match(line)
-        if not m:
+        match = self.PATTERN.match(line)
+        if not match:
             raise ValueError("Not a dnsmasq log line")
 
         # Normalize DNS type
-        if m["qtype"]:
-            qtype = m["qtype"]
-            raw_type = None
+        if match["qtype"]:
+            qtype = match["qtype"]
         else:
-            raw_type = int(m["qtype_num"])
+            raw_type = int(match["qtype_num"])
             qtype = f"TYPE{raw_type}"
 
-        ts = datetime.strptime(m["time"], "%b %d %H:%M:%S")
+        ts = datetime.strptime(match["time"], "%b %d %H:%M:%S")
         ts = ts.replace(year=datetime.now().year)
 
         return DNSEntry(
             timestamp=ts,
             qtype=qtype,
-            name=m["name"],
-            src_ip=m["src_ip"],
-            pid=int(m["pid"]),
-            type=raw_type,
+            name=match["name"],
+            src_ip=match["src_ip"],
+            pid=int(match["pid"]),
         )
    
 

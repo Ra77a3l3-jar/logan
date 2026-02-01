@@ -15,4 +15,3 @@ class DNSEntry:
     name: str
     src_ip: str
     pid: int
-    type: Optional[int] = None
