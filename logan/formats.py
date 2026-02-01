@@ -1,21 +1,27 @@
 from abc import ABC, abstractmethod
-from model import LogEntry
+from model import (
+    LogEntry,
+    DNSEntry,
+)
 import re
 from datetime import datetime
 import json
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
 
 
-class BasicParser(ABC):
+class BasicParser(ABC, Generic[T]):
     @abstractmethod
     def match(self, line: str) -> bool:
         pass
 
     @abstractmethod
-    def parse(self, line: str) -> LogEntry:
+    def parse(self, line: str) -> T:
         pass
 
 
-class ApacheParser(BasicParser):
+class ApacheParser(BasicParser[LogEntry]):
     PATTERN = re.compile(
         r'\[(?P<time>.*?)\] '
         r'"(?P<method>\w+) (?P<path>.*?) HTTP/.*?" '
@@ -37,7 +43,61 @@ class ApacheParser(BasicParser):
             latency=int(match["latency"]),
         )
 
-class JsonParser(BasicParser):
+class DnsmasqParser(BasicParser[DNSEntry]):
+    PATTERN= re.compile(
+        r"""
+        ^(?P<time>
+            [A-Z][a-z]{2}\s+
+            \d{1,2}\s+
+            \d{2}:\d{2}:\d{2}
+        )\s+
+        dnsmasq
+        \[(?P<pid>\d+)\]:
+        \s+query\[
+            (?:
+                (?P<qtype>[A-Z]+)
+                |
+                type=(?P<qtype_num>\d+)
+            )
+        \]\s+
+        (?P<name>[A-Za-z0-9._\-]+)
+        \s+from\s+
+        (?P<src_ip>\d{1,3}(?:\.\d{1,3}){3})
+        $
+        """,
+        re.VERBOSE
+    )
+
+    def match(self, line: str) -> bool:
+        return bool(self.PATTERN.match(line))
+
+    def parse(self, line: str) -> DNSEntry:
+        m = self.PATTERN.match(line)
+        if not m:
+            raise ValueError("Not a dnsmasq log line")
+
+        # Normalize DNS type
+        if m["qtype"]:
+            qtype = m["qtype"]
+            raw_type = None
+        else:
+            raw_type = int(m["qtype_num"])
+            qtype = f"TYPE{raw_type}"
+
+        ts = datetime.strptime(m["time"], "%b %d %H:%M:%S")
+        ts = ts.replace(year=datetime.now().year)
+
+        return DNSEntry(
+            timestamp=ts,
+            qtype=qtype,
+            name=m["name"],
+            src_ip=m["src_ip"],
+            pid=int(m["pid"]),
+            type=raw_type,
+        )
+   
+
+class JsonParser(BasicParser[LogEntry]):
     def match(self, line: str) -> bool:
         return line.strip().startswith("{")
 
@@ -53,6 +113,7 @@ class JsonParser(BasicParser):
 PARSERS = [
     ApacheParser(),
     JsonParser(),
+    DnsmasqParser(),
 ]
 
 def parse_line(line: str) -> LogEntry:
