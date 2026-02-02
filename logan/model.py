@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 @dataclass
 class LogEntry:
@@ -12,6 +11,6 @@ class LogEntry:
 class DNSEntry:
     timestamp: datetime
     qtype: str
-    name: str
+    domain: str
     src_ip: str
     pid: int

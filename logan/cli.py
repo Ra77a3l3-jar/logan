@@ -90,61 +90,60 @@ def main(file: str):
 
     # Display DNS log analysis
     if dnsEntries:
-        # Count queries per (source IP, destination domain)
-        ip_to_domain_count = defaultdict(lambda: defaultdict(int))
-        
-        # Count queries per minute from each IP
-        ip_queries_per_minute = defaultdict(lambda: defaultdict(int))
-        
-        # Count total queries per IP
-        ip_total_queries = defaultdict(int)
-        
-        # Count queries per domain
-        domain_query_count = defaultdict(int)
-        
+        # day -> ip -> domain -> count
+        # Number of queries that ip made to domain on day
+        day_ip_domain_queries = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        # day -> ip -> total count
+        # Total number of queries made by ip on a given day
+        day_ip_total = defaultdict(lambda: defaultdict(int))
+
         for entry in dnsEntries:
-            # Track IP -> domain queries
-            ip_to_domain_count[entry.src_ip][entry.name] += 1
-            
-            # Track queries per minute per IP
-            minute_key = entry.timestamp.replace(second=0, microsecond=0)
-            ip_queries_per_minute[entry.src_ip][minute_key] += 1
-            
-            # Total queries per IP
-            ip_total_queries[entry.src_ip] += 1
-            
-            # Total queries per domain
-            domain_query_count[entry.name] += 1
+            day_key = entry.timestamp.date()
+            day_ip_domain_queries[day_key][entry.src_ip][entry.domain] += 1
+            day_ip_total[day_key][entry.src_ip] += 1
 
-        console.print("\n")
-        table1 = Table(title="DNS Queries")
+        TOP_DOMAINS_PER_IP = 10
 
-        table1.add_column("Ip", style="cyan")
-        table1.add_column("Destination", style="blue")
-        table1.add_column("Frequency (min)", style="yellow", justify="right")
-        table1.add_column("Total Queries", style="yellow", justify="right")
-    
-        ip_active_minutes = {
-            ip: len(minutes)
-            for ip, minutes in ip_queries_per_minute.items()
-        }
+        # Iterate through each day
+        for day in sorted(day_ip_domain_queries.keys()):
+            console.print(f"\n[bold cyan]{'='*60}[/bold cyan]")
+            console.print(f"[bold cyan]{day.strftime('%B %d, %Y')}[/bold cyan]")
+            console.print(f"[bold cyan]{'='*60}[/bold cyan]\n")
 
-        for ip, domain in ip_to_domain_count.items():
-            active_min = ip_active_minutes.get(ip, 1)
+            # Get IPs for this day sorted by total queries
+            ips_for_day = sorted(
+                day_ip_total[day].keys(),
+                key=lambda x: day_ip_total[day][x],
+                reverse=True
+            )
 
-            for i, (domain, count) in enumerate(
-                sorted(domain.items(), key=lambda x: x[1], reverse=True)
-            ):
-                freq_per_min = count / active_min
+            # Create a table for each IP on this day
+            for ip in ips_for_day:
+                table = Table(title=f"IP: {ip}", header_style="bold magenta")
 
-                table1.add_row(
-                    ip if i == 0 else "",
-                    domain,
-                    f"{freq_per_min:.2f}",
-                    str(count),
-                )
+                table.add_column("Domain", style="yellow")
+                table.add_column("Queries", style="green", justify="right")
+                table.add_column("% of IP's Connections", style="cyan", justify="right")
 
-        console.print(table1)
+                total_queries_for_ip = day_ip_total[day][ip]
+
+                # Get top domains for this IP on this day
+                domains = sorted(
+                    day_ip_domain_queries[day][ip].items(),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )[:TOP_DOMAINS_PER_IP]
+
+                # Calculate percentage in day
+                for domain, count in domains:
+                    percentage_total_queries = (count / total_queries_for_ip) * 100
+                    table.add_row(domain, str(count), f"{percentage_total_queries:.1f}%")
+
+                console.print(table)
+                console.print(f"[bold]Total queries for this IP:[/bold] {total_queries_for_ip}\n")
+        
+        console.print(f"[bold cyan]{'='*60}[/bold cyan]\n")
+        
         
     if not logEntries and not dnsEntries:
         print("No valid log entries found")

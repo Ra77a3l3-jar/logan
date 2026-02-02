@@ -89,7 +89,7 @@ class DnsmasqParser(BasicParser[DNSEntry]):
         return DNSEntry(
             timestamp=ts,
             qtype=qtype,
-            name=match["name"],
+            domain=match["name"],
             src_ip=match["src_ip"],
             pid=int(match["pid"]),
         )
