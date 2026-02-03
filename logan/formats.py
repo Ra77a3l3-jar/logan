@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from model import (
+    UlogdEntry,
     HttpEntry,
     DNSEntry,
 )
@@ -94,6 +95,66 @@ class DnsmasqParser(BasicParser[DNSEntry]):
             pid=int(match["pid"]),
         )
 
+class UlogdParser(BasicParser[UlogdEntry]):
+    PATTERN = re.compile(
+        r"""
+        ^(?P<month>\S{3})\s+
+        (?P<day>\d{1,2})\s+
+        (?P<time>\d{2}:\d{2}:\d{2})\s+
+        (?P<hostname>\S+)\s+
+        \[(?P<state>\w+)\]\s+
+        ORIG:\s+
+        SRC=(?P<src_ip_ori>\S+)\s+
+        DST=(?P<dest_ip_ori>\S+)\s+
+        PROTO=(?P<protocol_ori>\S+)\s+
+        SPT=(?P<src_port_ori>\d+)\s+
+        DPT=(?P<dest_port_ori>\d+)\s+
+        PKTS=(?P<pkts_ori>\d+)\s+
+        BYTES=(?P<bytes_ori>\d+)\s*,\s*
+        REPLY:\s+
+        SRC=(?P<src_ip_dest>\S+)\s+
+        DST=(?P<dest_ip_dest>\S+)\s+
+        PROTO=(?P<protocol_dest>\S+)\s+
+        SPT=(?P<src_port_dest>\d+)\s+
+        DPT=(?P<dest_port_dest>\d+)\s+
+        PKTS=(?P<pkts_dest>\d+)\s+
+        BYTES=(?P<bytes_dest>\d+)$
+        """,
+        re.VERBOSE
+    )
+
+    def match(self, line: str) -> bool:
+        return bool(self.PATTERN.match(line))
+
+    def parse(self, line: str) -> UlogdEntry:
+        match = self.PATTERN.match(line)
+
+        if not match:
+            raise ValueError("Not a ulogd log file")
+
+        gd = match.groupdict()
+
+        timestamp = datetime.strptime(f"{gd['month']} {gd['day']} {gd['time']}", "%b %d %H:%M:%S")
+
+        return UlogdEntry(
+            timestamp=timestamp,
+            hostname=gd["hostname"],
+            state=gd["state"],
+            src_ip_ori=gd["src_ip_ori"],
+            dest_ip_ori=gd["dest_ip_ori"],
+            protocol_ori=gd["protocol_ori"],
+            src_port_ori=int(gd["src_port_ori"]),
+            dest_port_ori=int(gd["dest_port_ori"]),
+            pkts_ori=int(gd["pkts_ori"]),
+            bytes_ori=int(gd["bytes_ori"]),
+            src_ip_dest=gd["src_ip_dest"],
+            dest_ip_dest=gd["dest_ip_dest"],
+            protocol_dest=gd["protocol_dest"],
+            src_port_dest=int(gd["src_port_dest"]),
+            dest_port_dest=int(gd["dest_port_dest"]),
+            pkts_dest=int(gd["pkts_dest"]),
+            bytes_dest=int(gd["bytes_dest"]),
+        )
 
 class JsonParser(BasicParser[HttpEntry]):
     def match(self, line: str) -> bool:
@@ -112,9 +173,10 @@ PARSERS = [
     ApacheParser(),
     JsonParser(),
     DnsmasqParser(),
+    UlogdParser(),
 ]
 
-def parse_line(line: str) -> HttpEntry | DNSEntry:
+def parse_line(line: str) -> HttpEntry | DNSEntry | UlogdEntry:
     for parser in PARSERS:
         if parser.match(line):
             return parser.parse(line)
