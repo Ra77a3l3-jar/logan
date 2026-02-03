@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from model import (
-    LogEntry,
+    HttpEntry,
     DNSEntry,
 )
 import re
@@ -21,7 +21,7 @@ class BasicParser(ABC, Generic[T]):
         pass
 
 
-class ApacheParser(BasicParser[LogEntry]):
+class ApacheParser(BasicParser[HttpEntry]):
     PATTERN = re.compile(
         r'\[(?P<time>.*?)\] '
         r'"(?P<method>\w+) (?P<path>.*?) HTTP/.*?" '
@@ -31,13 +31,13 @@ class ApacheParser(BasicParser[LogEntry]):
     def match(self, line: str) -> bool:
         return bool(self.PATTERN.search(line))
 
-    def parse(self, line: str) -> LogEntry:
+    def parse(self, line: str) -> HttpEntry:
         match = self.PATTERN.search(line)
 
         if not match:
             raise ValueError("Error: not an apache log line")
 
-        return LogEntry(
+        return HttpEntry(
             timestamp=datetime.strptime(match["time"], "%d/%b/%Y:%H:%M:%S %z"),
             status=int(match["status"]),
             latency=int(match["latency"]),
@@ -93,16 +93,16 @@ class DnsmasqParser(BasicParser[DNSEntry]):
             src_ip=match["src_ip"],
             pid=int(match["pid"]),
         )
-   
 
-class JsonParser(BasicParser[LogEntry]):
+
+class JsonParser(BasicParser[HttpEntry]):
     def match(self, line: str) -> bool:
         return line.strip().startswith("{")
 
-    def parse(self, line: str) -> LogEntry:
+    def parse(self, line: str) -> HttpEntry:
         data = json.loads(line)
 
-        return LogEntry( # Will work only for a specific JSON formatting
+        return HttpEntry( # Will work only for a specific JSON formatting
             timestamp=datetime.fromisoformat(data["time"]),
             status=int(data["status"]),
             latency=int(data["latency"])
@@ -114,7 +114,7 @@ PARSERS = [
     DnsmasqParser(),
 ]
 
-def parse_line(line: str) -> LogEntry | DNSEntry:
+def parse_line(line: str) -> HttpEntry | DNSEntry:
     for parser in PARSERS:
         if parser.match(line):
             return parser.parse(line)

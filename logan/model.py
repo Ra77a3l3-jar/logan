@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 @dataclass
-class LogEntry:
+class HttpEntry:
     timestamp: datetime
     status: int
     latency: int
