@@ -9,5 +9,5 @@ version = "0.1.0"
 
 [dependencies]
 python = ">=3.12"
-typer = "*"
-rich = "*"
+typer = ">=0.21.1,<0.22"
+rich = ">=14.3.2,<15"
