@@ -107,18 +107,18 @@ class UlogdParser(BasicParser[UlogdEntry]):
         SRC=(?P<src_ip_ori>\S+)\s+
         DST=(?P<dest_ip_ori>\S+)\s+
         PROTO=(?P<protocol_ori>\S+)\s+
-        SPT=(?P<src_port_ori>\d+)\s+
-        DPT=(?P<dest_port_ori>\d+)\s+
+        (?:SPT=(?P<src_port_ori>\d+)\s+DPT=(?P<dest_port_ori>\d+)\s+)?
+        (?:TYPE=(?P<type_ori>\d+)\s+CODE=(?P<code_ori>\d+)\s+)?
         PKTS=(?P<pkts_ori>\d+)\s+
         BYTES=(?P<bytes_ori>\d+)\s*,\s*
         REPLY:\s+
         SRC=(?P<src_ip_dest>\S+)\s+
         DST=(?P<dest_ip_dest>\S+)\s+
         PROTO=(?P<protocol_dest>\S+)\s+
-        SPT=(?P<src_port_dest>\d+)\s+
-        DPT=(?P<dest_port_dest>\d+)\s+
+        (?:SPT=(?P<src_port_dest>\d+)\s+DPT=(?P<dest_port_dest>\d+)\s+)?
+        (?:TYPE=(?P<type_dest>\d+)\s+CODE=(?P<code_dest>\d+)\s+)?
         PKTS=(?P<pkts_dest>\d+)\s+
-        BYTES=(?P<bytes_dest>\d+)$
+        BYTES=(?P<bytes_dest>\d+)\s*$
         """,
         re.VERBOSE
     )
@@ -143,15 +143,19 @@ class UlogdParser(BasicParser[UlogdEntry]):
             src_ip_ori=gd["src_ip_ori"],
             dest_ip_ori=gd["dest_ip_ori"],
             protocol_ori=gd["protocol_ori"],
-            src_port_ori=int(gd["src_port_ori"]),
-            dest_port_ori=int(gd["dest_port_ori"]),
+            src_port_ori=int(gd["src_port_ori"]) if gd["src_port_ori"] else None,
+            dest_port_ori=int(gd["dest_port_ori"]) if gd["dest_port_ori"] else None,
+            type_ori=int(gd["type_ori"]) if gd["type_ori"] else None,
+            code_ori=int(gd["code_ori"]) if gd["code_ori"] else None,
             pkts_ori=int(gd["pkts_ori"]),
             bytes_ori=int(gd["bytes_ori"]),
             src_ip_dest=gd["src_ip_dest"],
             dest_ip_dest=gd["dest_ip_dest"],
             protocol_dest=gd["protocol_dest"],
-            src_port_dest=int(gd["src_port_dest"]),
-            dest_port_dest=int(gd["dest_port_dest"]),
+            src_port_dest=int(gd["src_port_dest"]) if gd["src_port_dest"] else None,
+            dest_port_dest=int(gd["dest_port_dest"]) if gd["dest_port_dest"] else None,
+            type_dest=int(gd["type_dest"]) if gd["type_dest"] else None,
+            code_dest=int(gd["code_dest"]) if gd["code_dest"] else None,
             pkts_dest=int(gd["pkts_dest"]),
             bytes_dest=int(gd["bytes_dest"]),
         )
