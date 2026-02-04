@@ -104,14 +104,19 @@ def displayHttpEntries(logEntries: list[HttpEntry]) -> None:
 def displayUlogdEntries(ulogdEntries: list[UlogdEntry]) -> None:
     console = Console()
 
+    # Filter only DESTROY entries
+    ulogdEntries = [entry for entry in ulogdEntries if entry.state == "DESTROY"]
+
     # Day -> Ip -> Destination -> Count
-    day_src_ip_query_count = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    day_src_ip_query_count = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'count': 0, 'pkts_ori': 0, 'bytes_ori': 0})))
     # Day -> Ip -> Count
     day_total_ip_queries = defaultdict(lambda: defaultdict(int))
 
     for entry in ulogdEntries:
         day_key = entry.timestamp.date()
-        day_src_ip_query_count[day_key][entry.src_ip_ori][entry.dest_ip_ori] += 1
+        day_src_ip_query_count[day_key][entry.src_ip_ori][entry.dest_ip_ori]['count'] += 1
+        day_src_ip_query_count[day_key][entry.src_ip_ori][entry.dest_ip_ori]['pkts_ori'] += entry.pkts_ori
+        day_src_ip_query_count[day_key][entry.src_ip_ori][entry.dest_ip_ori]['bytes_ori'] += entry.bytes_ori
         day_total_ip_queries[day_key][entry.src_ip_ori] += 1
 
     TOP_DESTINATIONS_PER_IP = 10
@@ -135,20 +140,24 @@ def displayUlogdEntries(ulogdEntries: list[UlogdEntry]) -> None:
             # Destination IP | Number of queries to this Destination
             table.add_column("Destination IP", style="yellow")
             table.add_column("Queries", style="green", justify="right")
+            table.add_column("Packets", style="cyan", justify="right")
+            table.add_column("Bytes", style="cyan", justify="right")
 
             total_queries_for_ip = day_total_ip_queries[day][ip]
 
             # Top destination per IP
             destinations = sorted(
                 day_src_ip_query_count[day][ip].items(),
-                key=lambda x: x[1],
+                key=lambda x: x[1]['count'],
                 reverse=True
             )[:TOP_DESTINATIONS_PER_IP]
 
-            for dest_ip, count in destinations:
+            for dest_ip, stats in destinations:
                 table.add_row(
                     dest_ip,
-                    str(count)
+                    str(stats['count']),
+                    f"{stats['pkts_ori']}",
+                    f"{stats['bytes_ori']}"
                 )
 
             console.print(table)
