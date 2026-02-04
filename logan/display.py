@@ -1,3 +1,4 @@
+from types import LambdaType
 from rich.console import Console
 from rich.table import Table
 from collections import defaultdict
@@ -56,7 +57,11 @@ def displayDnsEntries(dnsEntries: list[DNSEntry]) -> None:
             # Calculate percentage in day
             for domain, count in domains:
                 percentage_total_queries = (count / total_queries_for_ip) * 100
-                table.add_row(domain, str(count), f"{percentage_total_queries:.1f}%")
+                table.add_row(
+                    domain,
+                    str(count),
+                    f"{percentage_total_queries:.1f}%"
+                )
 
             console.print(table)
             console.print(f"[bold]Total queries for this IP:[/bold] {total_queries_for_ip}\n")
@@ -99,97 +104,53 @@ def displayHttpEntries(logEntries: list[HttpEntry]) -> None:
 def displayUlogdEntries(ulogdEntries: list[UlogdEntry]) -> None:
     console = Console()
 
-    # Group entries by day
-    day_entries = defaultdict(list)
+    # Day -> Ip -> Destination -> Count
+    day_src_ip_query_count = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    # Day -> Ip -> Count
+    day_total_ip_queries = defaultdict(lambda: defaultdict(int))
+
     for entry in ulogdEntries:
         day_key = entry.timestamp.date()
-        day_entries[day_key].append(entry)
+        day_src_ip_query_count[day_key][entry.src_ip_ori][entry.dest_ip_ori] += 1
+        day_total_ip_queries[day_key][entry.src_ip_ori] += 1
 
-    # Display entries grouped by day
-    for day in sorted(day_entries.keys()):
-        console.print(f"\n[bold cyan]{'='*80}[/bold cyan]")
+    TOP_DESTINATIONS_PER_IP = 10
+
+    for day in sorted(day_src_ip_query_count.keys()):
+        console.print(f"\n[bold cyan]{'='*60}[/bold cyan]")
         console.print(f"[bold cyan]{day.strftime('%B %d')}[/bold cyan]")
-        console.print(f"[bold cyan]{'='*80}[/bold cyan]\n")
+        console.print(f"[bold cyan]{'='*60}[/bold cyan]\n")
 
-        entries_for_day = day_entries[day]
+        ips_for_day_sort = sorted(
+            day_total_ip_queries[day].keys(),
+            key=lambda x: day_total_ip_queries[day][x],
+            reverse=True # Needed for descending order
+        )
 
-        # Create table for this day
-        table = Table(title=f"Ulogd Connection Tracking - {day.strftime('%B %d')}", header_style="bold magenta")
+        # Table for each IP
+        # TODO use just the lines with DESTROY
+        for ip in ips_for_day_sort:
+            table = Table(title=f"IP: {ip}", header_style="magenta")
 
-        table.add_column("Time", style="cyan", width=8)
-        table.add_column("State", style="bold", width=8)
-        table.add_column("Protocol", style="yellow", width=8)
-        table.add_column("Source", style="green", width=21)
-        table.add_column("Destination", style="blue", width=21)
-        table.add_column("Packets", style="magenta", justify="right", width=7)
-        table.add_column("Bytes", style="magenta", justify="right", width=7)
+            # Destination IP | Number of queries to this Destination
+            table.add_column("Destination IP", style="yellow")
+            table.add_column("Queries", style="green", justify="right")
 
-        for entry in entries_for_day:
-            # Format time
-            time_str = entry.timestamp.strftime("%H:%M:%S")
+            total_queries_for_ip = day_total_ip_queries[day][ip]
 
-            # Color state
-            if entry.state == "NEW":
-                state_color = "green"
-            elif entry.state == "DESTROY":
-                state_color = "red"
-            else:
-                state_color = "yellow"
+            # Top destination per IP
+            destinations = sorted(
+                day_src_ip_query_count[day][ip].items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:TOP_DESTINATIONS_PER_IP]
 
-            state_str = f"[{state_color}]{entry.state}[/{state_color}]"
+            for dest_ip, count in destinations:
+                table.add_row(
+                    dest_ip,
+                    str(count)
+                )
 
-            # Format ORIG source and destination
-            if entry.src_port_ori is not None:
-                orig_src = f"{entry.src_ip_ori}:{entry.src_port_ori}"
-            elif entry.type_ori is not None:
-                orig_src = f"{entry.src_ip_ori}"
-            else:
-                orig_src = f"{entry.src_ip_ori}"
-
-            if entry.dest_port_ori is not None:
-                orig_dst = f"{entry.dest_ip_ori}:{entry.dest_port_ori}"
-            elif entry.code_ori is not None:
-                orig_dst = f"{entry.dest_ip_ori}"
-            else:
-                orig_dst = f"{entry.dest_ip_ori}"
-
-            # Format protocol with additional info for ICMP
-            proto_str = entry.protocol_ori
-            if entry.type_ori is not None and entry.code_ori is not None:
-                proto_str = f"{proto_str} T:{entry.type_ori} C:{entry.code_ori}"
-
-            # Format packets and bytes (combine ORIG and REPLY)
-            total_pkts = entry.pkts_ori + entry.pkts_dest
-            total_bytes = entry.bytes_ori + entry.bytes_dest
-
-            table.add_row(
-                time_str,
-                state_str,
-                proto_str,
-                orig_src,
-                orig_dst,
-                str(total_pkts),
-                str(total_bytes)
-            )
-
-        console.print(table)
-
-        # Summary statistics for the day
-        total_new = sum(1 for e in entries_for_day if e.state == "NEW")
-        total_destroy = sum(1 for e in entries_for_day if e.state == "DESTROY")
-
-        # Protocol breakdown
-        proto_count = defaultdict(int)
-        for entry in entries_for_day:
-            proto_count[entry.protocol_ori] += 1
-
-        console.print(f"\n[bold]Summary for {day.strftime('%B %d')}:[/bold]")
-        console.print(f"  Total Connections: {len(entries_for_day)}")
-        console.print(f"  New Connections: [green]{total_new}[/green]")
-        console.print(f"  Destroyed Connections: [red]{total_destroy}[/red]")
-        console.print(f"  Protocol Breakdown:")
-        for proto, count in sorted(proto_count.items(), key=lambda x: x[1], reverse=True):
-            console.print(f"    {proto}: {count}")
-        console.print()
-
-    console.print(f"[bold cyan]{'='*80}[/bold cyan]\n")
+            console.print(table)
+            console.print(f"[bold]Total queries for this IP:[/bold] {total_queries_for_ip}\n")
+            console.print(f"[bold cyan]{'='*60}[/bold cyan]\n")
