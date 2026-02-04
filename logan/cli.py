@@ -1,6 +1,7 @@
 from model import (
     HttpEntry,
     DNSEntry,
+    UlogdEntry,
 )
 from formats import parse_line
 from rich.console import Console
@@ -8,6 +9,7 @@ import typer
 from display import (
     displayDnsEntries,
     displayHttpEntries,
+    displayUlogdEntries,
 )
 
 app = typer.Typer()
@@ -18,6 +20,7 @@ def main(file: str):
 
     logEntries: list[HttpEntry] = []
     dnsEntries: list[DNSEntry] = []
+    ulogdEntries: list[UlogdEntry] = []
 
     with open(file) as f:
         for line in f:
@@ -31,6 +34,8 @@ def main(file: str):
                         raise ValueError(f"Invalid HTTP status code: {entry.status}")
                 elif isinstance(entry, DNSEntry):
                     dnsEntries.append(entry)
+                elif isinstance(entry, UlogdEntry):
+                    ulogdEntries.append(entry)
             except ValueError:
                 pass
 
@@ -42,7 +47,11 @@ def main(file: str):
     if dnsEntries:
         displayDnsEntries(dnsEntries)
 
-    if not logEntries and not dnsEntries:
+    # Display Ulogd log analysis
+    if ulogdEntries:
+        displayUlogdEntries(ulogdEntries)
+
+    if not logEntries and not dnsEntries and not ulogdEntries:
         print("No valid log entries found")
         raise typer.Exit(code=1)
 
